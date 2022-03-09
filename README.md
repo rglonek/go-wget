@@ -63,3 +63,7 @@ func callback(p *wget.Progress) {
 	log.Printf("%d%% complete @ %s / second (%s elapsed)", p.PctComplete, wget.SizeToString(p.BytesPerSecond), p.TimeElapsed.Round(time.Second))
 }
 ```
+
+## GetReader and GetReaderWithProgress
+
+These functions works like Get and GetWithProgress, except they do not use the w writer. Instead they return the reader in GetOutput.R and expect the caller to read and close.

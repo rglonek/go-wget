@@ -37,10 +37,11 @@ type GetOutput struct {
 	Response     string
 	NumBytes     int64
 	TotalBytes   int64
+	R            io.ReadCloser
 }
 
 type PassThruReader struct {
-	io.Reader
+	io.ReadCloser
 	totalRead         int64
 	totalSize         int64
 	startTime         time.Time
@@ -50,9 +51,9 @@ type PassThruReader struct {
 	exitCallback      chan int
 }
 
-func NewReader(TotalSize int64, Reader io.Reader, callbackFrequency time.Duration, callbackFunc CallbackFunc) *PassThruReader {
+func NewReader(TotalSize int64, Reader io.ReadCloser, callbackFrequency time.Duration, callbackFunc CallbackFunc) *PassThruReader {
 	pt := PassThruReader{
-		Reader:            Reader,
+		ReadCloser:        Reader,
 		startTime:         time.Now(),
 		totalSize:         TotalSize,
 		callbackFrequency: callbackFrequency,
@@ -90,7 +91,7 @@ func (pt *PassThruReader) callback() {
 }
 
 func (pt *PassThruReader) Read(p []byte) (int, error) {
-	n, err := pt.Reader.Read(p)
+	n, err := pt.ReadCloser.Read(p)
 	pt.lock.Lock()
 	pt.totalRead += int64(n)
 	pt.lock.Unlock()
@@ -98,6 +99,10 @@ func (pt *PassThruReader) Read(p []byte) (int, error) {
 		pt.exitCallback <- 1
 	}
 	return n, err
+}
+
+func (pt *PassThruReader) Close() error {
+	return pt.ReadCloser.Close()
 }
 
 func GetWithProgress(input *GetInput) (output *GetOutput, err error) {
@@ -142,6 +147,39 @@ func Get(input *GetInput) (output *GetOutput, err error) {
 	if err != nil {
 		return output, err
 	}
+	return
+}
+
+func GetReader(input *GetInput) (output *GetOutput, err error) {
+	output, responseBody, _, err := getPrepare(input)
+	if err != nil {
+		return output, err
+	}
+	output.TotalBytes = -1
+	output.NumBytes = -1
+	output.R = responseBody
+	return
+}
+
+func GetReaderWithProgress(input *GetInput) (output *GetOutput, err error) {
+	if input.CallbackFrequency == 0 {
+		input.CallbackFrequency = time.Second
+	}
+	if input.CallbackFunc == nil {
+		return nil, errors.New("callback function is required")
+	}
+	output, responseBody, contentLength, err := getPrepare(input)
+	if err != nil {
+		return output, err
+	}
+	t, err := strconv.Atoi(contentLength)
+	if err != nil {
+		return output, ErrNoContentLengthHeader
+	}
+	output.TotalBytes = int64(t)
+	output.NumBytes = -1
+	src := NewReader(int64(t), responseBody, input.CallbackFrequency, input.CallbackFunc)
+	output.R = src
 	return
 }
 
