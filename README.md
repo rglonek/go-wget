@@ -17,48 +17,49 @@ import (
 	"bytes"
 	"log"
 	"time"
-    wget "github.com/rglonek/go-wget"
+
+	wget "github.com/rglonek/go-wget"
 )
 
 func main() {
-    // define some buffer, could be a file
+	// define some buffer, could be a file
 	w := new(bytes.Buffer)
 
-    // define input
-    // note Auth and Timeout are optional
-    timeout := time.Minute
-    input := &wget.GetInput{
+	// define input
+	// note Auth and Timeout are optional
+	timeout := time.Minute
+	input := &wget.GetInput{
 		Url:               "http://212.183.159.230/20MB.zip",
 		Writer:            w,
 		CallbackFrequency: time.Second,
 		CallbackFunc:      callback,
-        Auth: &wget.Auth{
-            Username: "bob",
-            Password: "test",
-        },
-        Timeout: &timeout,
+		Auth: &wget.Auth{
+			Username: "bob",
+			Password: "test",
+		},
+		Timeout: &timeout,
 	}
 
-    // call get with progress
+	// call get with progress
 	output, err := wget.GetWithProgress(input)
 
-    // if no content header exists, call get without progress
+	// if no content header exists, call get without progress
 	if err != nil && err == wget.ErrNoContentLengthHeader {
-        output, err = wget.Get(input)
-    }
+		output, err = wget.Get(input)
+	}
 
-    // handle errors
-    if err != nil {
+	// handle errors
+	if err != nil {
 		log.Printf("Get Error: %s", err)
 		return
 	}
 
-    // print summary
-	log.Printf("transferred:%s statusCode:%d status:%s total:%s", SizeToString(output.NumBytes), output.ResponseCode, output.Response, SizeToString(output.TotalBytes))
+	// print summary
+	log.Printf("transferred:%s statusCode:%d status:%s total:%s", wget.SizeToString(output.NumBytes), output.ResponseCode, output.Response, wget.SizeToString(output.TotalBytes))
 }
 
 // callback function for progress
 func callback(p *wget.Progress) {
-	log.Printf("%d%% complete @ %s / second (%s elapsed)", p.PctComplete, SizeToString(p.BytesPerSecond), p.TimeElapsed.Round(time.Second))
+	log.Printf("%d%% complete @ %s / second (%s elapsed)", p.PctComplete, wget.SizeToString(p.BytesPerSecond), p.TimeElapsed.Round(time.Second))
 }
 ```
